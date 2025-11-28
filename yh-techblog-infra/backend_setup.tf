@@ -6,7 +6,7 @@ resource "aws_s3_bucket" "tf_state" {
   bucket = "techblog-tfstate-yh-s3"
   
   tags = {
-    Name = "YH TechBlog Terraform State"
+    Name = "TechBlog Terraform State"
   }
 }
 
@@ -28,6 +28,6 @@ resource "aws_dynamodb_table" "tf_locks" {
     type = "S"
   }
   tags = {
-    Name = "YH TechBlog Terraform Lock Table"
+    Name = "TechBlog Terraform Lock Table"
   }
 }

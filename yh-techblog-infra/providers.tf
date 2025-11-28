@@ -20,7 +20,7 @@ terraform {
     region         = "ap-northeast-2"
     encrypt        = true # 상태 파일 암호화
     dynamodb_table = "techblog-tf-locks" # DynamoDB 테이블을 사용하여 상태 파일에 대한 잠금(Locking) 기능을 활성화 (동시 실행 방지)
-  }
+   }
 }
 
 # AWS Provider 구성
