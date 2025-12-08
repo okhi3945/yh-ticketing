@@ -4,6 +4,8 @@
 # vpc, subnet 등이 있는 Network 모듈로 부터 VPC 정보를 Input 변수로 받음
 variable "vpc_id" {}
 variable "public_subnet_ids" {}
+variable "ssh_public_key" {}
+
 
 # jenkins용 보안그룹 정의
 resource "aws_security_group" "jenkins_sg" {
@@ -85,4 +87,59 @@ data "aws_ami" "ubuntu" {
 # SSH 접속용 키페어 Key Pair
 resource "aws_key_pair" "jenkins_key" {
   key_name = "jenkins-key" # 사용할 SSH 키 이름
-  
+  public_key = var.ssh_public_key 
+} 
+
+# Jenkins EC2 Instance
+resource "aws_instance" "jenkins_master" {
+  ami		= data.aws_ami.ubuntu.id
+  instance-type = "t3.medium"
+  key_name	= aws_key_pair.jenkins_key.key_name
+
+  subnet_id = var.public_subnet_ids[0]
+  vpc_security_group_ids = [aws_security_group.jenkins_sg.id]
+  associate_public_ip_address = true
+
+  # Jenkins, Java, Docker 자동 설치 스크립트 - 사용자 데이터
+  user_data = <<-EOF
+              #!/bin/bash
+              # 패키지 업데이트
+              sudo apt update -y
+              # Java 17 설치 (Jenkins 필수 요소)
+              sudo apt install openjdk-17-jre -y
+              
+              # Jenkins 설치 스크립트
+              curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+              echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+              sudo apt update -y
+              sudo apt install jenkins -y
+              
+              # Docker 설치 및 권한 부여
+              sudo apt install docker.io -y
+              sudo usermod -aG docker jenkins 
+              sudo usermod -aG docker ubuntu 
+              
+              # Jenkins 서비스 활성화 및 시작
+              sudo systemctl enable jenkins
+              sudo systemctl start jenkins
+              
+              # 불필요한 패키지 정리
+              sudo apt autoremove -y
+              EOF
+
+  iam_instance_profile = aws_iam_instance_profile.jenkins_profile.name
+
+  tags = {
+    Name = "Ticketing-Jenkins-Master-Server"
+  }
+}
+
+# Output
+output "jenkins_public_ip" {
+  description = "Jenkins Master 서버의 Public IP"
+  value	      = aws_instance.jenkins_master.public_ip
+}
+
+output "jenkins_security_group_id" {
+  value = aws_security_group.jenkins_sg.id
+}
