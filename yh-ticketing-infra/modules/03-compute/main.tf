@@ -87,7 +87,7 @@ resource "aws_key_pair" "jenkins_key" {
 # Jenkins EC2 Instance
 resource "aws_instance" "jenkins_master" {
   ami		= data.aws_ami.ubuntu.id
-  instance_type = "t3.medium"
+  instance_type = "t3.micro"
   key_name	= aws_key_pair.jenkins_key.key_name
 
   subnet_id = var.public_subnet_ids[0]
@@ -97,30 +97,36 @@ resource "aws_instance" "jenkins_master" {
   # Jenkins, Java, Docker 자동 설치 스크립트 - 사용자 데이터
   user_data = <<-EOF
               #!/bin/bash
-              # 패키지 업데이트
+              # 1. 패키지 업데이트
               sudo apt update -y
-              # Java 17 설치 (Jenkins 필수 요소)
+              
+              # 2. Java 17 설치 (Jenkins 필수 요소)
               sudo apt install openjdk-17-jre -y
               
-              # Jenkins 설치 스크립트
+              # 3. Jenkins 저장소 키 등록
               curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+              
+              # 4. Jenkins 저장소 소스 리스트 추가
               echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+              
+              # 5. 패키지 목록 재업데이트 (저장소 반영)
               sudo apt update -y
+              
+              # 6. Jenkins 설치 (설치 시 서비스 파일이 시스템에 등록됨)
               sudo apt install jenkins -y
               
-              # Docker 설치 및 권한 부여
+              # 7. Docker 설치 및 권한 부여
               sudo apt install docker.io -y
               sudo usermod -aG docker jenkins 
               sudo usermod -aG docker ubuntu 
               
-              # Jenkins 서비스 활성화 및 시작
+              # 8. Jenkins 서비스 활성화 및 시작 (설치 후이므로 서비스 파일이 존재함)
               sudo systemctl enable jenkins
               sudo systemctl start jenkins
               
-              # 불필요한 패키지 정리
+              # 9. 불필요한 패키지 정리
               sudo apt autoremove -y
               EOF
-
   iam_instance_profile = aws_iam_instance_profile.jenkins_profile.name
 
   tags = {
