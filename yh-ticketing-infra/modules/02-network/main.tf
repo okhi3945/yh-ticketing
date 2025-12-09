@@ -6,7 +6,7 @@ resource "aws_vpc" "ticketing_vpc" {
   enable_dns_support   = true
   enable_dns_hostnames = true
   tags = {
-    Name = "TechBlog-VPC"
+    Name = "Ticketing-VPC"
   }
 }
 
@@ -14,7 +14,7 @@ resource "aws_vpc" "ticketing_vpc" {
 resource "aws_internet_gateway" "ticketing_igw" {
   vpc_id = aws_vpc.ticketing_vpc.id
   tags = {
-    Name = "TechBlog-IGW"
+    Name = "Ticketing-IGW"
   }
 }
 
@@ -31,7 +31,7 @@ resource "aws_subnet" "public_subnet" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
   tags = {
-    Name = "TechBlog-Public-Subnet-${data.aws_availability_zones.available.names[count.index]}"
+    Name = "Ticketing-Public-Subnet-${data.aws_availability_zones.available.names[count.index]}"
   }
 }
 
@@ -42,7 +42,7 @@ resource "aws_subnet" "private_subnet" {
   cidr_block        = cidrsubnet(aws_vpc.ticketing_vpc.cidr_block, 8, count.index + 2) # 10.0.2.0/24, 10.0.3.0/24
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags = {
-    Name = "TechBlog-Private-Subnet-${data.aws_availability_zones.available.names[count.index]}"
+    Name = "Ticketing-Private-Subnet-${data.aws_availability_zones.available.names[count.index]}"
   }
 }
 
@@ -50,7 +50,7 @@ resource "aws_subnet" "private_subnet" {
 resource "aws_route_table" "public_route_table" {
   vpc_id = aws_vpc.ticketing_vpc.id
   tags = {
-    Name = "TechBlog-Public-RT"
+    Name = "Ticketing-Public-RT"
   }
 }
 
@@ -72,7 +72,7 @@ resource "aws_route_table_association" "public_association" {
 resource "aws_eip" "ticketing_nat_eip" {
   domain = "vpc"
   tags = {
-    Name = "TechBlog-NAT-EIP"
+    Name = "Ticketing-NAT-EIP"
   }
 }
 
@@ -81,7 +81,7 @@ resource "aws_nat_gateway" "ticketing_nat" {
   allocation_id = aws_eip.ticketing_nat_eip.id
   subnet_id     = aws_subnet.public_subnet[0].id # Public Subnet 중 첫 번째 (AZ-A)에 배치
   tags = {
-    Name = "TechBlog-NAT-Gateway"
+    Name = "Ticketing-NAT-Gateway"
   }
   # NAT Gateway가 EIP에 의존하도록 명시적으로 설정 (안정성)
   depends_on = [aws_internet_gateway.ticketing_igw]
@@ -91,7 +91,7 @@ resource "aws_nat_gateway" "ticketing_nat" {
 resource "aws_route_table" "private_route_table" {
   vpc_id = aws_vpc.ticketing_vpc.id
   tags = {
-    Name = "TechBlog-Private-RT"
+    Name = "Ticketing-Private-RT"
   }
 }
 
