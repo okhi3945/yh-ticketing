@@ -4,12 +4,12 @@
 # jenkins용 보안그룹 정의
 resource "aws_security_group" "jenkins_sg" {
   name		= "ticketing-jenkins-master-sg"
-  description	= "젠킨스용 보안 그룹"
+  description	= "jenkins_SG"
   vpc_id	= var.vpc_id # Network 모듈에서 받아온 VPC ID를 var. 으로 사용
   
   # Ingress 규칙 : 외부에서 Jenkins 서버로 들어오는 규칙
   ingress {
-	description = "웹에서 젠킨스로 들어오는 8080 포트를 열어둠"
+	description = "web(out) to jenkins, inbound 8080"
 	from_port   = 8080
 	to_port     = 8080
 	protocol    = "tcp"
@@ -18,7 +18,7 @@ resource "aws_security_group" "jenkins_sg" {
 
   # 22포트로 들어오는 포트를 열어 SSH로 관리 접속을 허용
   ingress {
-	description	= "SSH 22번 포트 허용(인바운드)"
+	description	= "SSH 22 to jenkins, inbound 22"
 	from_port	= 22
 	to_port		= 22
 	protocol	= "tcp"
@@ -87,7 +87,7 @@ resource "aws_key_pair" "jenkins_key" {
 # Jenkins EC2 Instance
 resource "aws_instance" "jenkins_master" {
   ami		= data.aws_ami.ubuntu.id
-  instance-type = "t3.medium"
+  instance_type = "t3.medium"
   key_name	= aws_key_pair.jenkins_key.key_name
 
   subnet_id = var.public_subnet_ids[0]
