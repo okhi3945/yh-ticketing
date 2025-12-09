@@ -1,12 +1,6 @@
 # EC2 Jenkins for CI/CD
 # 티켓팅 프로젝트의 CI/CD 파이프라인을 운영할 서버 구축을 목표로 하는 모듈
 
-# vpc, subnet 등이 있는 Network 모듈로 부터 VPC 정보를 Input 변수로 받음
-variable "vpc_id" {}
-variable "public_subnet_ids" {}
-variable "ssh_public_key" {}
-
-
 # jenkins용 보안그룹 정의
 resource "aws_security_group" "jenkins_sg" {
   name		= "ticketing-jenkins-master-sg"
