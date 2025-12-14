@@ -36,3 +36,21 @@ resource "aws_iam_role_plicy_attachment" "eks_vpc_cni_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
   role       = aws_iam_role.eks_cluster_role.name
 }
+
+# EKS Cluster (Control Plane) 정의
+resource "aws_eks_cluster" "ticketing_cluster" {
+  name     = "ticketing-eks-cluster"
+  role_arn = aws_iam_role.eks_cluster_role.arn
+  version  = "1.28"
+
+  vpc_config {
+    subnet_ids = var.private_subnet_ids # EKS는 Private Subnet에 배치 (보안)
+    endpoint_private_access = true # VPC 내부 접근 허용
+    endpoint_public_access = false # 외부 접근 차단
+  }
+
+  tags = {
+    Name = "Ticketing-EKS-Control-Plane"
+  }
+}
+
