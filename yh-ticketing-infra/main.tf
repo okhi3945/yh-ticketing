@@ -37,6 +37,19 @@ module "eks" {
   aws_region = "ap-northeast-2"
 }
 
+# RDS 모듈
+module "rds" {
+  source = "./modules/05-rds"
+  
+  vpc_id              = module.network.vpc_id
+  private_subnet_ids  = module.network.private_subnet_ids
+  # Root 폴더에 variables.tf에 정의된 비밀번호 변수를 전달
+  rds_password        = var.rds_db_password 
+  # EKS 노드 SG를 RDS SG에 인바운드 규칙으로 허용하기 위해 전달
+  # EKS 모듈의 Output인 'eks_node_sg.id'를 RDS 모듈로 전달
+  eks_node_security_group_id = module.eks.eks_node_security_group_id
+}
+
 # Root Output: 다른 프로젝트에서 참조할 수 있도록 최종 Output 통합
 output "vpc_id" {
   value = module.network.vpc_id
@@ -61,4 +74,10 @@ output "jenkins_public_ip" {
 output "eks_kubeconfig_command" {
   value = module.eks.eks_kubeconfig_command
   description = "EKS 클러스터에 kubectl로 접속하기 위한 명령어 AWS CLI v2가 설치되어 있어야 함!!"
+}
+
+# RDS 접속 정보 Output
+output "rds_endpoint" {
+  value = module.rds.rds_endpoint
+  description = "Ticketing PostgreSQL DB Endpoint Address"
 }

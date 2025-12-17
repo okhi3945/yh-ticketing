@@ -126,3 +126,8 @@ output "eks_kubeconfig_command" {
 output "node_group_name" {
     value = aws_eks_node_group.private_node_group.node_group_name
 }
+
+output "eks_node_security_group_id" {
+  description = "Security Group ID for EKS Worker Nodes"
+  value       = aws_security_group.eks_node_sg.id
+}
