@@ -1,4 +1,4 @@
-package com.yh.yh_ticketing;
+package com.yh.ticketing;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

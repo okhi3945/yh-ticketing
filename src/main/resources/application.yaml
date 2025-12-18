@@ -1,6 +1,6 @@
 spring:
   application:
-    name: yh-ticketing
+    name: ticketing
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/ticketing_db
