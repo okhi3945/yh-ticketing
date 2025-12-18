@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 데이터베이스
+  db:
+    image: postgres:15
+    container_name: ticketing-db
+    environment:
+      POSTGRES_DB: ticketing_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+
+  # Redis (분산 락용)
+  redis:
+    image: redis:latest
+    container_name: ticketing-redis
+    ports:
+      - "6379:6379"
+
+  # Spring Boot
+  app:
+    build: . # 현재 폴더의 Dockerfile을 읽어서 빌드
+    container_name: ticketing-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASS=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
