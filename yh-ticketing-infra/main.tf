@@ -32,8 +32,8 @@ module "eks" {
   public_subnet_ids    = module.network.public_subnet_ids
   private_subnet_ids   = module.network.private_subnet_ids
 
-  # AWS Region
-
+  jenkins_security_group_id = module.compute.jenkins_security_group_id
+  jenkins_role_arn = module.compute.jenkins_role_arn
   aws_region = "ap-northeast-2"
 }
 

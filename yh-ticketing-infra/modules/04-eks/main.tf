@@ -18,10 +18,43 @@ resource "aws_iam_role" "eks_cluster_role" {
   })
 }
 
+resource "aws_eks_access_entry" "jenkins_access_entry" {
+  cluster_name      = aws_eks_cluster.ticketing_cluster.name
+  principal_arn     = var.jenkins_role_arn
+  kubernetes_groups = ["system:masters"] # 쿠버네티스 최고 관리자 그룹
+  type              = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "jenkins_admin_policy" {
+  cluster_name  = aws_eks_cluster.ticketing_cluster.name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = var.jenkins_role_arn
+
+  access_scope {
+    type = "cluster"
+  }
+}
+
 resource "aws_security_group" "eks_node_sg" {
   name        = "ticketing-eks-node-sg"
   description = "Security group for all nodes in the cluster"
   vpc_id      = var.vpc_id
+
+  # 컨트롤 플레인 및 젠킨스와의 통신용 (443 포트 허용)
+  ingress {
+    from_port    = 443
+    to_port      = 443
+    protocol     = "tcp"
+    security_groups = [var.jenkins_security_group_id]
+  }
+
+  ingress {
+    description = "Allow all traffic within Node SG (Internal only)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+  }
 
   # 노드 간 통신 및 기본 아웃바운드 규칙 설정
   egress {
@@ -36,6 +69,16 @@ resource "aws_security_group" "eks_node_sg" {
   }
 }
 
+resource "aws_security_group_rule" "allow_jenkins_to_eks_api" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  # EKS 클러스터가 자동 생성한 보안 그룹 ID를 참조
+  security_group_id        = aws_eks_cluster.ticketing_cluster.vpc_config[0].cluster_security_group_id
+  source_security_group_id = var.jenkins_security_group_id
+  description              = "Allow Jenkins to communicate with EKS API Server"
+}
 
 # EKS 클러스터 관리 정책 연결, 기본 관리 권한, AWS 리소스를 만들거나 수정하는데 필요한 기본적인 권한
 resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
@@ -125,6 +168,7 @@ resource "aws_eks_node_group" "private_node_group" {
   depends_on = [
     aws_iam_role_policy_attachment.eks_cluster_policy,
     aws_iam_role_policy_attachment.eks_vpc_cni_policy,
+    aws_security_group_rule.allow_jenkins_to_eks_api,
   ]
 
   tags = {
