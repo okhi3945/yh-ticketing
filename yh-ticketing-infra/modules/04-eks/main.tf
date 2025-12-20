@@ -25,6 +25,8 @@ resource "aws_eks_access_entry" "jenkins_access_entry" {
   type              = "STANDARD"
 }
 
+
+# EKS Credentials 오류 해결을 위한 eksclusteradmin 정책 추가
 resource "aws_eks_access_policy_association" "jenkins_admin_policy" {
   cluster_name  = aws_eks_cluster.ticketing_cluster.name
   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
