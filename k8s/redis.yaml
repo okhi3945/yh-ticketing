@@ -1,9 +1,10 @@
+# Redis Deployment : 인메모리 데이터베이스인 Redis를 실행함
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ticketing-redis
 spec:
-  replicas: 1
+  replicas: 1 # 캐시는 보통 관리 복잡성 때문에 1개로 시작, 클러스터로 구성
   selector:
     matchLabels:
       app: redis
@@ -14,15 +15,17 @@ spec:
     spec:
       containers:
       - name: redis
-        image: redis:latest
+        image: redis:latest # Docker Hub에서 공식 이미지를 가져옴
         ports:
         - containerPort: 6379
 ---
+# Redis Service : API 서버가 Redis에 접속할 수 있도록 고정 주소 부여!
 apiVersion: v1
 kind: Service
 metadata:
   name: ticketing-redis-service
 spec:
+  # 외부 노출 없이 클러스터 내부에서만 통신, LoadBalancer가 없음
   selector:
     app: redis
   ports:
