@@ -1,3 +1,18 @@
+// Jenkinsfile
+// 1. checkout : GitHub 같은 저장소에서 최신 소스코드를 Jenkins 서버로 가져오는 단계
+// SCM(Source Control Management) 설정을 통해 코드가 변경될 때마다 자동으로 빌드가 시작되도록 연동
+// 2. Build Artifact : Java 소스 코드를 컴퓨터가 실행할 수 있는 JAR 파일로 변환
+// ./gradlew clean build : 이전 빌드 기로글 지우고 새로 만듦
+// 현업에서는 -x test를 하여 테스트가 통과되어야 다음 단계로 넘어감
+// 3. Docker Build & Tag : 생성된 JAR 파일을 어떤 환경에서도 실행될 수 있게 Docker 이미지로 변환함
+// ${IMAGE_TAG} : 빌드 번호를 붙여 버전을 명확히 함
+// latest : 가장 최신 버전을 가리키는 별칭을 만듦
+// 4. Push to ECR : 내 로컬 Jenkins에 있는 이미지를 전 세계 어디서든 꺼내 쓸 수 있도록 AWS ECR로 업로드
+// aws ecr get-login-password 명령어가 중요! => 보안을 위해 일회성 비밀번호를 발급받아 로그인하는 과정임
+// 5. Deploy to EKS : AWS의 쿠버네티스 서비스인 EKS에 명령을 내려 실제 서비스를 가동함
+// update-kubeconfig : Jenkins가 EKS 클러스터에 접속할 수 있는 출입증 발급 받기
+// kubectl apply -f k8s/ : 미리 준비된 설정 파일(YAML)대로 서버를 띄우라고 명령
+
 pipeline {
     agent any
 
