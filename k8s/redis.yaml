@@ -1,4 +1,6 @@
 # Redis Deployment : 인메모리 데이터베이스인 Redis를 실행함
+# EKS 환경에서 Redis를 컨테이너로 쿠버네티스 위에 올려서 사용하는데, deployment에서 배포한 스프링부트가 이 Redis의 호스트 값을 환경변수로 받아
+# 소스코드와 인프라가 이름 (Service Name)을 통해 서로를 찾을 수 있게 하며, 스프링부트에 추가한 의존성과 redis 관련 코드를 사용할 수 있는 서버를 띄움
 apiVersion: apps/v1
 kind: Deployment
 metadata:
