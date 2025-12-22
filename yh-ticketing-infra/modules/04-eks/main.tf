@@ -225,5 +225,6 @@ output "node_group_name" {
 
 output "eks_node_security_group_id" {
   description = "Security Group ID for EKS Worker Nodes"
-  value       = aws_security_group.eks_node_sg.id
+  # value       = aws_security_group.eks_node_sg.id
+  value       = aws_eks_cluster.ticketing_cluster.vpc_config[0].cluster_security_group_id
 }
