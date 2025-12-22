@@ -96,4 +96,8 @@ public class TicketingService {
         
         return bookingRepository.save(booking);
     }
+    @Transactional(readOnly = true)
+    public List<Booking> getMyBookings(String userId) {
+        return bookingRepository.findByUserId(userId);
+    }
 }
