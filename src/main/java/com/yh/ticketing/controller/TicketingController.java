@@ -2,6 +2,7 @@ package com.yh.ticketing.controller;
 
 import com.yh.ticketing.model.Booking;
 import com.yh.ticketing.service.TicketingService;
+import com.yh.ticketing.service.RedissonLockFacade;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
