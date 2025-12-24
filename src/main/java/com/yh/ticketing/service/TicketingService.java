@@ -66,24 +66,25 @@
 // }
 package com.yh.ticketing.service;
 
-import com.yh.ticketing.model.Booking;
-import com.yh.ticketing.model.Ticket;
-import com.yh.ticketing.model.Performance;
-import com.yh.ticketing.repository.BookingRepository;
-import com.yh.ticketing.repository.TicketRepository;
+import com.yh.ticketing.model.*;
+import com.yh.ticketing.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-class TicketingService {
+public class TicketingService {
     private final PerformanceRepository performanceRepository;
     private final TicketRepository ticketRepository;
     private final BookingRepository bookingRepository;
 
-    // [Admin] 공연 정보 생성
     @Transactional
     public Performance createPerformance(String title, String description, LocalDateTime startAt) {
         Performance performance = Performance.builder()
@@ -94,7 +95,6 @@ class TicketingService {
         return performanceRepository.save(performance);
     }
 
-    // [Admin] 특정 공연에 대한 티켓(좌석) 100개 일괄 생성
     @Transactional
     public List<Ticket> initTickets(Long performanceId, int count) {
         performanceRepository.findById(performanceId)
@@ -111,13 +111,12 @@ class TicketingService {
         return ticketRepository.saveAll(tickets);
     }
 
-    // [User] 티켓 예약 (동시성 제어 대상)
     @Transactional
     public Booking reserve(Long ticketId, String userId, String userName) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "티켓 정보가 없습니다."));
 
-        ticket.reserve(); // 상태 변경 로직 (AVAILABLE -> BOOKED)
+        ticket.reserve();
 
         Booking booking = Booking.builder()
                 .ticketId(ticketId)

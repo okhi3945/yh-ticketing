@@ -2,24 +2,22 @@ package com.yh.ticketing.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @Entity
 @Table(name = "tickets")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-class Ticket {
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Ticket {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private Long performanceId;    // 어느 공연의 티켓인가
-    private String seatNumber;     // 좌석 번호 (예: A1, A2)
+    private Long performanceId;
+    private String seatNumber;
 
     @Enumerated(EnumType.STRING)
-    private TicketStatus status;   // AVAILABLE, BOOKED
+    private TicketStatus status;
 
     public void reserve() {
         if (this.status != TicketStatus.AVAILABLE) {
@@ -28,5 +26,3 @@ class Ticket {
         this.status = TicketStatus.BOOKED;
     }
 }
-
-enum TicketStatus { AVAILABLE, BOOKED }
