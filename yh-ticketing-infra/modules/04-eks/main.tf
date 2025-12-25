@@ -209,6 +209,33 @@ resource "aws_eks_node_group" "private_node_group" {
   }
 }
 
+# Helm Provider 설정 (EKS 클러스터와 연결)
+provider "helm" {
+  kubernetes {
+    host                   = aws_eks_cluster.ticketing_cluster.endpoint
+    cluster_ca_certificate = base64decode(aws_eks_cluster.ticketing_cluster.certificate_authority[0].data)
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      args        = ["eks", "get-token", "--cluster-name", aws_eks_cluster.ticketing_cluster.name]
+      command     = "aws"
+    }
+  }
+}
+
+# Prometheus & Grafana 스택 설치
+resource "helm_release" "prometheus_stack" {
+  name       = "prometheus-stack"
+  repository = "https://prometheus-community.github.io/helm-charts"
+  chart      = "kube-prometheus-stack"
+  namespace  = "monitoring"
+  create_namespace = true
+
+  set {
+    name  = "grafana.adminPassword"
+    value = "admin123" # 실제로는 변수 처리 권장
+  }
+}
+
 # EKS 설정 파일 접속에 필요한 정보를 output으로 내보냄
 output "cluster_name" {
   value = aws_eks_cluster.ticketing_cluster.name
