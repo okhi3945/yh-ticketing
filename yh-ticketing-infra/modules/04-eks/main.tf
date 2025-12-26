@@ -232,7 +232,19 @@ resource "helm_release" "prometheus_stack" {
 
   set {
     name  = "grafana.adminPassword"
-    value = "admin123" # 실제로는 변수 처리 권장
+    value = "admin123"
+  }
+
+  # Grafana 서비스를 NLB 타입으로 변경하여 외부에서 접속 가능하게 수정
+  set {
+    name  = "grafana.service.type"
+    value = "LoadBalancer"
+  }
+
+  # AWS NLB 생성하도록 어노테이션 추가
+  set {
+    name  = "grafana.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type"
+    value = "nlb"
   }
 }
 
