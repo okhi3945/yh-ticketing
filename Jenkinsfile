@@ -76,7 +76,7 @@ pipeline {
                     dir('yh-ticketing-infra') {
                         // rds_endpoint를 추출
                         env.DB_HOST = sh(script: "terraform output -raw rds_endpoint", returnStdout: true).trim()
-                        env.DB_PASS = "password"
+                        env.DB_PASS = sh(script: "terraform output -raw rds_password", returnStdout: true).trim()
                 }
 
                 // k8s/deployment.yaml 안의 ${DB_HOST}가 실제 주소로 바뀐 상태로 kubectl에 전달됩니다.
