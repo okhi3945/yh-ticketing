@@ -71,8 +71,18 @@ pipeline {
                 // EKS 클러스터 접속 설정(kubeconfig)을 업데이트
                 sh "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${AWS_REGION}"
                 
-                // 쿠버네티스 매니페스트(YAML)를 사용하여 배포를 자동화
-                sh "kubectl apply -f k8s/"
+                // infra 폴더로 이동하여 rds_endpoint 값을 변수에 저장합니다.
+                script {
+                    dir('yh-ticketing-infra') {
+                        // rds_endpoint를 추출
+                        env.DB_HOST = sh(script: "terraform output -raw rds_endpoint", returnStdout: true).trim()
+                        env.DB_PASS = "password"
+                }
+
+                // k8s/deployment.yaml 안의 ${DB_HOST}가 실제 주소로 바뀐 상태로 kubectl에 전달됩니다.
+                sh "envsubst < k8s/deployment.yaml | kubectl apply -f -"
+
+                sh "kubectl apply -f k8s/redis.yaml"
                 echo "EKS 인프라 준비 완료. k8s 매니페스트 배포 대기 중..."
             }
         }
