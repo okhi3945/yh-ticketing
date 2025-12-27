@@ -209,19 +209,6 @@ resource "aws_eks_node_group" "private_node_group" {
   }
 }
 
-# Helm Provider 설정 (EKS 클러스터와 연결)
-provider "helm" {
-  kubernetes {
-    host                   = aws_eks_cluster.ticketing_cluster.endpoint
-    cluster_ca_certificate = base64decode(aws_eks_cluster.ticketing_cluster.certificate_authority[0].data)
-    exec {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      args        = ["eks", "get-token", "--cluster-name", aws_eks_cluster.ticketing_cluster.name]
-      command     = "aws"
-    }
-  }
-}
-
 # Prometheus & Grafana 스택 설치
 resource "helm_release" "prometheus_stack" {
   name       = "prometheus-stack"
@@ -266,4 +253,12 @@ output "eks_node_security_group_id" {
   description = "Security Group ID for EKS Worker Nodes"
   # value       = aws_security_group.eks_node_sg.id
   value       = aws_eks_cluster.ticketing_cluster.vpc_config[0].cluster_security_group_id
+}
+
+output "cluster_endpoint" {
+  value = aws_eks_cluster.ticketing_cluster.endpoint
+}
+
+output "cluster_certificate_authority_data" {
+  value = aws_eks_cluster.ticketing_cluster.certificate_authority[0].data
 }
