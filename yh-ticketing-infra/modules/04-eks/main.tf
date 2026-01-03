@@ -18,46 +18,13 @@ resource "aws_iam_role" "eks_cluster_role" {
   })
 }
 
-# Jenkins 배포 권한 설정
-# 외부에 있는 젠킨스(IAM Role)를 EKS 클러스터 안으로 들여보내주는 입구
-resource "aws_eks_access_entry" "jenkins_access_entry" {
-  cluster_name      = aws_eks_cluster.ticketing_cluster.name
-  principal_arn     = var.jenkins_role_arn
-  kubernetes_groups = [] 
-  type              = "STANDARD"
-}
-
-
-# EKS Credentials 오류 해결을 위해 Jenkins에게 EKS cluster admin 정책 추가
-resource "aws_eks_access_policy_association" "jenkins_admin_policy" {
-  cluster_name  = aws_eks_cluster.ticketing_cluster.name
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-  principal_arn = var.jenkins_role_arn
-
-  access_scope {
-    type = "cluster"
-  }
-  depends_on = [aws_eks_access_entry.jenkins_access_entry]
-}
-
 # 보안 그룹 흐름 따라 잡기
 # 누가 누구에게 문을 열어주는 가를 생각해야함
-# Jenkins => EkS API Server (443 포트)
 resource "aws_security_group" "eks_node_sg" {
   name        = "ticketing-eks-node-sg"
   description = "Security group for all nodes in the cluster"
   vpc_id      = var.vpc_id
 
-  # 여기는 aws_security_group_rule과 다르게 목적지가 워커 노드(EC2 인스턴스) 자체임
-  # 컨트롤 플레인 및 젠킨스와의 통신용 (443 포트 허용)
-  # Jenkins가 특정 상황(direct node access)에서 워커 노드에게 직접 데이터를 보내거나 통신해야할 때 사용
-  # 주석 처리해도 젠킨스는 EKS의 API 서버와 대화하고 워커 노드에게 직접 명령을 내릴 상황은 별로 없음
-  #ingress {
-  #  from_port    = 443
-  #  to_port      = 443
-  #  protocol     = "tcp"
-  #  security_groups = [var.jenkins_security_group_id]
-  #}
 
   # 워커 노드들에 흩어져 있는 Pod들이 서로 통신하는 것
   # Ingress가 들어오는 인바운드를 처리해주는 얘가 맞지만 cidr_blocks이 아닌 
@@ -87,25 +54,6 @@ resource "aws_security_group" "eks_node_sg" {
   }
 }
 
-
-# 목적지 : EKS Control Plane의 API 서버
-# Jenkins가 Pod를 생성하는 등의 명령어를 보낼 때 통과시켜주는 역할
-# EKS에게 Jenkins가 말을 걸 수 있게 허락해주는 부분임!!
-# API 서버는 컨테이너 어디에 띄울지, 누가 배포 명령을 내렸는지 등의 관리 업무만 하므로
-# RDS 보안그룹을 지정해줄 필요 없음 
-resource "aws_security_group_rule" "allow_jenkins_to_eks_api" {
-  type                     = "ingress"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
-
-  # EKS 클러스터가 자동 생성한 보안 그룹 ID를 참조 (cluster_security_group_id)
-  security_group_id        = aws_eks_cluster.ticketing_cluster.vpc_config[0].cluster_security_group_id
-  # 보안 그룹 ID를 확인하여 Jenkins 보안 그룹을 가지고 있으면 들어오게 함 (Source : 출발지)
-  source_security_group_id = var.jenkins_security_group_id
-  description              = "Allow Jenkins to communicate with EKS API Server"
-}
-
 # EKS 클러스터 관리 정책 연결, 기본 관리 권한, AWS 리소스를 만들거나 수정하는데 필요한 기본적인 권한
 resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
@@ -129,7 +77,7 @@ resource "aws_eks_cluster" "ticketing_cluster" {
   vpc_config {
     subnet_ids = var.private_subnet_ids # EKS는 Private Subnet에 배치 (보안)
     endpoint_private_access = true # VPC 내부 접근 허용
-    endpoint_public_access = false # 외부 접근 차단, 인터넷에 노출하지 않고, 오직 내부(VPC)에서만 접근할 수 있음
+    endpoint_public_access = true
   }
 
   access_config {
@@ -141,6 +89,42 @@ resource "aws_eks_cluster" "ticketing_cluster" {
     Name = "Ticketing-EKS-Control-Plane"
   }
 }
+
+Jenkins Pod용 IAM Role 및 OIDC 신뢰 관계 설정 (IRSA)
+data "aws_iam_policy_document" "jenkins_oidc_assume_role_policy" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_eks_cluster.ticketing_cluster.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      # 'jenkins' 네임스페이스의 'jenkins-admin' 서비스 계정만 허용
+      values   = ["system:serviceaccount:jenkins:jenkins-admin"] 
+    }
+    principals {
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(aws_eks_cluster.ticketing_cluster.identity[0].oidc[0].issuer, "https://", "")}"]
+      type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "jenkins_pod_role" {
+  name               = "ticketing-jenkins-pod-role"
+  assume_role_policy = data.aws_iam_policy_document.jenkins_oidc_assume_role_policy.json
+}
+
+Jenkins Pod에 필요한 ECR 푸시 및 EKS 관리 권한 연결
+resource "aws_iam_role_policy_attachment" "jenkins_pod_ecr" {
+  role       = aws_iam_role.jenkins_pod_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
+}
+
+resource "aws_iam_role_policy_attachment" "jenkins_pod_eks" {
+  role       = aws_iam_role.jenkins_pod_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+}
+
+data "aws_caller_identity" "current" {}
 
 # EKS Node Group용 IAM Role (Worker Nodes)
 # 실제 워크로드(티켓팅 API Pod)가 실행되는 Worker Node에 AWS 리소스를 사용할 수 있는 신분증을 부여
@@ -195,13 +179,9 @@ resource "aws_eks_node_group" "private_node_group" {
     min_size     = 2
   }
 
-  # EKS 클러스터가 완전히 생성된 후에 노드 그룹이 생성되도록 명시적 의존성 설정
-  # aws_security_group_rule.allow_jenkins_to_eks_api => 젠킨스가 EKS에게 애플리케이션 배포 명령을 내리기 위해 
-  # 젠킨스는 EKS의 입구인 API Server(443)을 통과해야함
   depends_on = [
     aws_iam_role_policy_attachment.eks_cluster_policy,
     aws_iam_role_policy_attachment.eks_vpc_cni_policy,
-    aws_security_group_rule.allow_jenkins_to_eks_api, 
   ]
 
   tags = {
@@ -227,4 +207,8 @@ output "eks_node_security_group_id" {
   description = "Security Group ID for EKS Worker Nodes"
   # value       = aws_security_group.eks_node_sg.id
   value       = aws_eks_cluster.ticketing_cluster.vpc_config[0].cluster_security_group_id
+}
+
+output "jenkins_pod_role_arn" {
+  value = aws_iam_role.jenkins_pod_role.arn
 }

@@ -12,17 +12,6 @@ module "network" {
   source = "./modules/02-network"
 }
 
-# Jenkins EC2 
-module "compute" {
-  source = "./modules/03-compute"
-  
-  vpc_id	= module.network.vpc_id
-  public_subnet_ids = module.network.public_subnet_ids
-
-  # 루트 variables.tf에 정의된 public key 변수 전달
-  ssh_public_key = var.public_ssh_key_content
-}
-
 # EKS 모듈 호출 (EKS Cluster, Node Group)
 module "eks" {
   source = "./modules/04-eks"
@@ -32,8 +21,6 @@ module "eks" {
   public_subnet_ids    = module.network.public_subnet_ids
   private_subnet_ids   = module.network.private_subnet_ids
 
-  jenkins_security_group_id = module.compute.jenkins_security_group_id
-  jenkins_role_arn = module.compute.jenkins_role_arn
   aws_region = "ap-northeast-2"
 }
 
@@ -65,10 +52,6 @@ output "private_subnet_ids" {
 
 output "ecr_repository_url" {
   value = module.foundation.ecr_repository_url 
-}
-
-output "jenkins_public_ip" {
-  value = module.compute.jenkins_public_ip
 }
 
 output "eks_kubeconfig_command" {
