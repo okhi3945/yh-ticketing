@@ -1,79 +1,105 @@
 // Jenkinsfile
-// 1. checkout : GitHub 같은 저장소에서 최신 소스코드를 Jenkins 서버로 가져오는 단계
-// SCM(Source Control Management) 설정을 통해 코드가 변경될 때마다 자동으로 빌드가 시작되도록 연동
-// 2. Build Artifact : Java 소스 코드를 컴퓨터가 실행할 수 있는 JAR 파일로 변환
-// ./gradlew clean build : 이전 빌드 기로글 지우고 새로 만듦
-// 현업에서는 -x test를 하여 테스트가 통과되어야 다음 단계로 넘어감
-// 3. Docker Build & Tag : 생성된 JAR 파일을 어떤 환경에서도 실행될 수 있게 Docker 이미지로 변환함
-// ${IMAGE_TAG} : 빌드 번호를 붙여 버전을 명확히 함
-// latest : 가장 최신 버전을 가리키는 별칭을 만듦
-// 4. Push to ECR : 내 로컬 Jenkins에 있는 이미지를 전 세계 어디서든 꺼내 쓸 수 있도록 AWS ECR로 업로드
-// aws ecr get-login-password 명령어가 중요! => 보안을 위해 일회성 비밀번호를 발급받아 로그인하는 과정임
-// 5. Deploy to EKS : AWS의 쿠버네티스 서비스인 EKS에 명령을 내려 실제 서비스를 가동함
-// update-kubeconfig : Jenkins가 EKS 클러스터에 접속할 수 있는 출입증 발급 받기
-// kubectl apply -f k8s/ : 미리 준비된 설정 파일(YAML)대로 서버를 띄우라고 명령
-
 pipeline {
-    agent any
+    agent {
+        kubernetes {
+            // Jenkins Agent가 실행될 Pod 정의 (Gradle, Docker, Kubectl 포함)
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: gradle
+    image: gradle:8.4-jdk17
+    command: ['sleep']
+    args: ['99d']
+  - name: docker
+    image: docker:dind
+    securityContext:
+      privileged: true
+  - name: kubectl
+    image: lachlanevenson/k8s-kubectl:v1.25.4
+    command: ['sleep']
+    args: ['99d']
+"""
+        }
+    }
 
     environment {
         AWS_REGION     = 'ap-northeast-2'
-        
-        ECR_URL        = '601559288376.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing-api-repo'
-        
-        CLUSTER_NAME   = 'ticketing-eks-cluster'
+        ECR_URL        = '601559288376.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing-api-repo' //
+        CLUSTER_NAME   = 'ticketing-eks-cluster' //
         IMAGE_TAG      = "${env.BUILD_NUMBER}"
     }
 
     stages {
-
-        // 1. Checkout => Github에서 소스코드 가져오기, scm에 github 레포지토리와 credentials에 설정해둔 ssh키로 접속하여 소스코드 가져옴
+        // 1. 소스코드 가져오기
         stage('Checkout') {
             steps {
-                checkout scm
+                checkout scm //
             }
         }
 
-        // Spring Boot를 위해 gradle을 사용하여 JAR 파일을 생성함
+        // 2. Spring Boot 빌드 (JAR 생성)
         stage('Build Artifact') {
             steps {
-                // Gradle을 이용해 실행 가능한 JAR 파일 생성
-                // -x test는 빌드 속도를 위해 테스트를 건너뛰는 옵션입니다.
-                sh 'chmod +x gradlew'
-                sh './gradlew clean build -x test -Dorg.gradle.jvmargs="-Xmx512m"'
+                container('gradle') {
+                    sh 'chmod +x gradlew'
+                    sh './gradlew clean build -x test -Dorg.gradle.jvmargs="-Xmx512m"' //
+                }
             }
         }
 
-        // Dockerfile을 읽어 Spring Boot의 도커 이미지를 만들어둠
-        // docker-compose.yml은 k8s의 Yaml을 사용할 것임
+        // 3. Docker 이미지 빌드 및 태그
         stage('Docker Build & Tag') {
             steps {
-                // 프로젝트 루트의 Dockerfile을 읽어 이미지 빌드 및 태그 지정
-                sh "docker build -t ${ECR_URL}:${IMAGE_TAG} ."
-                sh "docker tag ${ECR_URL}:${IMAGE_TAG} ${ECR_URL}:latest"
+                container('docker') {
+                    sh "docker build -t ${ECR_URL}:${IMAGE_TAG} ." //
+                    sh "docker tag ${ECR_URL}:${IMAGE_TAG} ${ECR_URL}:latest" //
+                }
             }
         }
 
-
-        // 위에서 빌드한 Spring Boot의 도커 이미지를 ecr에 넣기 
+        // 4. AWS ECR에 이미지 푸시
         stage('Push to ECR') {
             steps {
-                // AWS ECR 저장소에 로그인하고 빌드된 이미지를 전송(Push)
-                sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}"
-                sh "docker push ${ECR_URL}:${IMAGE_TAG}"
-                sh "docker push ${ECR_URL}:latest"
+                container('docker') {
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}" //
+                    sh "docker push ${ECR_URL}:${IMAGE_TAG}"
+                    sh "docker push ${ECR_URL}:latest"
+                }
             }
         }
 
-        // eks를 사용하여 배포
+        // 5. EKS 배포 (환경 변수 치환 로직 포함)
         stage('Deploy to EKS') {
             steps {
-                // EKS 클러스터 접속 설정(kubeconfig)을 업데이트
-                sh "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${AWS_REGION}"
-                
-                // 쿠버네티스 매니페스트(YAML)를 사용하여 배포를 자동화
-                sh "kubectl apply -f k8s/"
-                echo "EKS 인프라 준비 완료. k8s 매니페스트 배포 대기 중..."
+                container('kubectl') {
+                    script {
+                        // EKS 접속 설정
+                        sh "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${AWS_REGION}" //
+
+                        // [핵심] Terraform Output에서 DB 정보를 가져와 환경변수로 설정
+                        // Jenkins Pod가 IRSA 권한을 가지고 있으므로 S3 백엔드에 접근 가능해야 함
+                        dir('yh-ticketing-infra') {
+                            sh "terraform init -no-color"
+                            env.DB_HOST_RAW = sh(script: "terraform output -raw rds_endpoint", returnStdout: true).trim() //
+                            env.DB_PASS_RAW = sh(script: "terraform output -raw rds_password", returnStdout: true).trim() //
+                        }
+
+                        // [핵심] envsubst를 사용하여 k8s/deployment.yaml의 변수를 실제 값으로 치환
+                        // DB_HOST, DB_PASS, IMAGE_TAG가 치환된 deployment_final.yaml 생성
+                        sh """
+                            export DB_HOST=${env.DB_HOST_RAW}
+                            export DB_PASS=${env.DB_PASS_RAW}
+                            export IMAGE_TAG=${env.IMAGE_TAG}
+                            envsubst < k8s/deployment.yaml > k8s/deployment_final.yaml
+                        """
+
+                        // 최종 파일 배포
+                        sh "kubectl apply -f k8s/deployment_final.yaml" //
+                        sh "kubectl apply -f k8s/redis.yaml" //
+                    }
+                }
             }
         }
     }
@@ -87,4 +113,3 @@ pipeline {
         }
     }
 }
-

@@ -90,7 +90,6 @@ resource "aws_eks_cluster" "ticketing_cluster" {
   }
 }
 
-Jenkins Pod용 IAM Role 및 OIDC 신뢰 관계 설정 (IRSA)
 data "aws_iam_policy_document" "jenkins_oidc_assume_role_policy" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -113,7 +112,6 @@ resource "aws_iam_role" "jenkins_pod_role" {
   assume_role_policy = data.aws_iam_policy_document.jenkins_oidc_assume_role_policy.json
 }
 
-Jenkins Pod에 필요한 ECR 푸시 및 EKS 관리 권한 연결
 resource "aws_iam_role_policy_attachment" "jenkins_pod_ecr" {
   role       = aws_iam_role.jenkins_pod_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
