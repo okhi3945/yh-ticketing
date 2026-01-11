@@ -6,10 +6,10 @@ pipeline {
         ECR_URL        = '601559288376.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing-api-repo' //
         CLUSTER_NAME   = 'ticketing-eks-cluster' //
         IMAGE_TAG      = "${env.BUILD_NUMBER}"
+        APP_NAME = "yh-ticketing"
     }
 
     stages {
-        // 0. 단계 스크립트 실행 권한 부여
         stage('Prepare') {
             steps {
                 echo 'Preparing workspace...'
@@ -18,52 +18,48 @@ pipeline {
             }
         }
 
-        // 1. 소스코드 가져오기
-        stage('Checkout') {
+        stage('Build') {
             steps {
-                checkout scm //
+                echo 'Building Spring Boot Application...'
+                // 테스트를 제외하고 빌드 수행
+                sh './gradlew clean build -x test'
             }
         }
 
-        // 2. Spring Boot 빌드 (JAR 생성)
-        stage('Build Artifact') {
+        stage('Docker Build & Push') {
             steps {
-                container('gradle') {
-                    sh 'chmod +x gradlew'
-                    sh './gradlew clean build -x test -Dorg.gradle.jvmargs="-Xmx512m"' //
+                echo 'Building and Pushing Docker Image...'
+                script {
+                    // 1. ECR 로그인 (AWS CLI가 설치되어 있어야 함)
+                    // sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}"
+                    
+                    // 2. 이미지 빌드
+                    // 젠킨스 컨테이너가 호스트의 docker.sock을 공유하므로 로컬 도커 엔진을 사용합니다.
+                    sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
+                    
+                    // 3. 태그 및 푸시 (실제 ECR 사용 시 주석 해제)
+                    // sh "docker tag ${APP_NAME}:${IMAGE_TAG} ${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    // sh "docker push ${ECR_REPOSITORY}:${IMAGE_TAG}"
                 }
             }
         }
 
-        // 3. Docker 이미지 빌드 및 태그
-        stage('Docker Build & Tag') {
-            steps {
-                container('docker') {
-                    sh "docker build -t ${ECR_URL}:${IMAGE_TAG} ." //
-                    sh "docker tag ${ECR_URL}:${IMAGE_TAG} ${ECR_URL}:latest" //
-                }
-            }
-        }
-
-        // 4. AWS ECR에 이미지 푸시
-        stage('Push to ECR') {
-            steps {
-                container('docker') {
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}" //
-                    sh "docker push ${ECR_URL}:${IMAGE_TAG}"
-                    sh "docker push ${ECR_URL}:latest"
-                }
-            }
-        }
-
-        // 5. EKS 배포 (환경 변수 치환 로직 포함)
         stage('Deploy to EKS') {
             steps {
                 echo 'Deploying to AWS EKS...'
                 script {
+                    // 1. Kubeconfig 확인
+                    // docker-compose에서 마운트한 .kube/config가 /root/.kube/config에 있는지 확인
+                    
+                    // 2. Deployment 파일의 이미지 태그 업데이트 (sed 활용)
+                    // 실제 deployment.yml에 IMAGE_TAG_PLACEHOLDER 문구가 있어야 합니다.
+                    // sh "sed -i 's|IMAGE_TAG_PLACEHOLDER|${IMAGE_TAG}|g' k8s/deployment.yml"
+                    
+                    // 3. EKS에 적용
                     sh "kubectl apply -f k8s/deployment.yml"
                     
-                    sh "kubectl rollout status deployment/yh-ticketing"
+                    // 4. 배포 상태 확인
+                    sh "kubectl rollout status deployment/${APP_NAME}"
                 }
             }
         }
