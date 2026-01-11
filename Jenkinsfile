@@ -9,6 +9,15 @@ pipeline {
     }
 
     stages {
+        // 0. 단계 스크립트 실행 권한 부여
+        stage('Prepare') {
+            steps {
+                echo 'Preparing workspace...'
+                // 빌드 스크립트 실행 권한 부여
+                sh 'chmod +x gradlew'
+            }
+        }
+
         // 1. 소스코드 가져오기
         stage('Checkout') {
             steps {
