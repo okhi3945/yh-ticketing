@@ -1,28 +1,5 @@
-// Jenkinsfile
 pipeline {
-    agent {
-        kubernetes {
-            // Jenkins Agent가 실행될 Pod 정의 (Gradle, Docker, Kubectl 포함)
-            yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: gradle
-    image: gradle:8.4-jdk17
-    command: ['sleep']
-    args: ['99d']
-  - name: docker
-    image: docker:dind
-    securityContext:
-      privileged: true
-  - name: kubectl
-    image: lachlanevenson/k8s-kubectl:v1.25.4
-    command: ['sleep']
-    args: ['99d']
-"""
-        }
-    }
+    agent any
 
     environment {
         AWS_REGION     = 'ap-northeast-2'
@@ -75,27 +52,21 @@ spec:
             steps {
                 container('kubectl') {
                     script {
-                        // EKS 접속 설정
                         sh "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${AWS_REGION}" //
 
-                        // [핵심] Terraform Output에서 DB 정보를 가져와 환경변수로 설정
-                        // Jenkins Pod가 IRSA 권한을 가지고 있으므로 S3 백엔드에 접근 가능해야 함
                         dir('yh-ticketing-infra') {
                             sh "terraform init -no-color"
                             env.DB_HOST_RAW = sh(script: "terraform output -raw rds_endpoint", returnStdout: true).trim() //
                             env.DB_PASS_RAW = sh(script: "terraform output -raw rds_password", returnStdout: true).trim() //
                         }
 
-                        // [핵심] envsubst를 사용하여 k8s/deployment.yaml의 변수를 실제 값으로 치환
-                        // DB_HOST, DB_PASS, IMAGE_TAG가 치환된 deployment_final.yaml 생성
                         sh """
                             export DB_HOST=${env.DB_HOST_RAW}
                             export DB_PASS=${env.DB_PASS_RAW}
                             export IMAGE_TAG=${env.IMAGE_TAG}
-                            envsubst < k8s/deployment.yaml > k8s/deployment_final.yaml
+                            envsubst < k8s/deployment.yaml > k8s/deployment.yaml
                         """
 
-                        // 최종 파일 배포
                         sh "kubectl apply -f k8s/deployment_final.yaml" //
                         sh "kubectl apply -f k8s/redis.yaml" //
                     }
