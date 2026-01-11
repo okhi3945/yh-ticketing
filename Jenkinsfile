@@ -30,16 +30,16 @@ pipeline {
             steps {
                 echo 'Building and Pushing Docker Image...'
                 script {
-                    // 1. ECR 로그인 (AWS CLI가 설치되어 있어야 함)
-                    // sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}"
+                    // 1. ECR 로그인
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}"
                     
                     // 2. 이미지 빌드
                     // 젠킨스 컨테이너가 호스트의 docker.sock을 공유하므로 로컬 도커 엔진을 사용합니다.
                     sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
                     
-                    // 3. 태그 및 푸시 (실제 ECR 사용 시 주석 해제)
-                    // sh "docker tag ${APP_NAME}:${IMAGE_TAG} ${ECR_REPOSITORY}:${IMAGE_TAG}"
-                    // sh "docker push ${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    // 3. 태그 및 푸시
+                    sh "docker tag ${APP_NAME}:${IMAGE_TAG} ${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    sh "docker push ${ECR_REPOSITORY}:${IMAGE_TAG}"
                 }
             }
         }
