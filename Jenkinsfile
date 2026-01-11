@@ -50,26 +50,11 @@ pipeline {
         // 5. EKS 배포 (환경 변수 치환 로직 포함)
         stage('Deploy to EKS') {
             steps {
-                container('kubectl') {
-                    script {
-                        sh "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${AWS_REGION}" //
-
-                        dir('yh-ticketing-infra') {
-                            sh "terraform init -no-color"
-                            env.DB_HOST_RAW = sh(script: "terraform output -raw rds_endpoint", returnStdout: true).trim() //
-                            env.DB_PASS_RAW = sh(script: "terraform output -raw rds_password", returnStdout: true).trim() //
-                        }
-
-                        sh """
-                            export DB_HOST=${env.DB_HOST_RAW}
-                            export DB_PASS=${env.DB_PASS_RAW}
-                            export IMAGE_TAG=${env.IMAGE_TAG}
-                            envsubst < k8s/deployment.yaml > k8s/deployment.yaml
-                        """
-
-                        sh "kubectl apply -f k8s/deployment_final.yaml" //
-                        sh "kubectl apply -f k8s/redis.yaml" //
-                    }
+                echo 'Deploying to AWS EKS...'
+                script {
+                    sh "kubectl apply -f k8s/deployment.yml"
+                    
+                    sh "kubectl rollout status deployment/yh-ticketing"
                 }
             }
         }
@@ -84,3 +69,4 @@ pipeline {
         }
     }
 }
+
