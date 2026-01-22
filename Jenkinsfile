@@ -52,6 +52,9 @@ pipeline {
             steps {
                 echo 'Deploying to AWS EKS...'
                 script {
+                    sh "pwd"          // 현재 경로 출력
+                    sh "ls -al"       // 현재 폴더 파일 목록 출력
+                    sh "ls -al k8s/"   // k8s 폴더 안의 내용 출력
                     // 1. Kubeconfig 확인
                     // docker-compose에서 마운트한 .kube/config가 /root/.kube/config에 있는지 확인
                     
