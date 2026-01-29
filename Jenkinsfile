@@ -50,9 +50,25 @@ pipeline {
 
         stage('Deploy to EKS') {
             steps {
-                echo 'Deploying to AWS EKS...'
                 script {
-                    sh "kubectl apply -f k8s/deployment.yaml"
+                    // 1. Terraform 폴더로 이동하여 RDS 엔드포인트 가져오기
+                    def rdsHost = ""
+                    dir('yh-ticketing-infra') {
+                        rdsHost = sh(script: "terraform output -raw rds_endpoint", returnStdout: true).trim()
+                        rdsHost = rdsHost.split(':')[0]
+                    }
+
+                    // 2. 젠킨스 Credentials에서 DB 비밀번호 가져오기 (미리 등록해둔 ID: 'RDS_PASSWORD')
+                    withCredentials([string(credentialsId: 'RDS_PASSWORD', variable: 'DB_PWD')]) {
+                        
+                        // 3. sed 명령어로 k8s/deployment.yaml의 플레이스홀더 치환
+                        sh "sed -i 's|IMAGE_TAG_PLACEHOLDER|${IMAGE_TAG}|g' k8s/deployment.yaml"
+                        sh "sed -i 's|DB_HOST_PLACEHOLDER|${rdsHost}|g' k8s/deployment.yaml"
+                        sh "sed -i 's|DB_PASS_PLACEHOLDER|${DB_PWD}|g' k8s/deployment.yaml"
+
+                        // 4. 쿠버네티스 배포 실행
+                        sh "kubectl apply -f k8s/deployment.yaml --validate=false"
+                    }
                     
                     sh "kubectl rollout status deployment/${APP_NAME}"
                 }

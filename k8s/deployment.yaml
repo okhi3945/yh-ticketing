@@ -4,7 +4,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ticketing-app
+  name: yh-ticketing
   labels:
     app: ticketing
 spec:
@@ -18,17 +18,17 @@ spec:
         app: ticketing # 이 라벨이 붙은 Pod를 생성한다!
     spec:
       containers:
-      - name: ticketing-app
-        image: 601559288376.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing-api-repo:latest
+      - name: yh-ticketing
+        image: 601559288376.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing-api-repo:IMAGE_TAG_PLACEHOLDER
         ports:
         - containerPort: 8080
         env:
         - name: DB_HOST
-          value: "${DB_HOST}"
+          value: "DB_HOST_PLACEHOLDER"
         - name: DB_USER
           value: "postgres"
         - name: DB_PASS
-          value: "${DB_PASS}"
+          value: "DB_PASS_PLACEHOLDER"
 
         - name: REDIS_HOST
           value: "ticketing-redis-service"
