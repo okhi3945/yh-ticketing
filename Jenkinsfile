@@ -52,20 +52,8 @@ pipeline {
             steps {
                 echo 'Deploying to AWS EKS...'
                 script {
-                    sh "pwd"          // 현재 경로 출력
-                    sh "ls -al"       // 현재 폴더 파일 목록 출력
-                    sh "ls -al k8s/"   // k8s 폴더 안의 내용 출력
-                    // 1. Kubeconfig 확인
-                    // docker-compose에서 마운트한 .kube/config가 /root/.kube/config에 있는지 확인
+                    sh "kubectl apply -f k8s/deployment.yaml"
                     
-                    // 2. Deployment 파일의 이미지 태그 업데이트 (sed 활용)
-                    // 실제 deployment.yml에 IMAGE_TAG_PLACEHOLDER 문구가 있어야 합니다.
-                    // sh "sed -i 's|IMAGE_TAG_PLACEHOLDER|${IMAGE_TAG}|g' k8s/deployment.yml"
-                    
-                    // 3. EKS에 적용
-                    sh "kubectl apply -f k8s/deployment.yml"
-                    
-                    // 4. 배포 상태 확인
                     sh "kubectl rollout status deployment/${APP_NAME}"
                 }
             }
