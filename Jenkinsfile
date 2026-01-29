@@ -54,6 +54,7 @@ pipeline {
                     // 1. Terraform 폴더로 이동하여 RDS 엔드포인트 가져오기
                     def rdsHost = ""
                     dir('yh-ticketing-infra') {
+                        sh "terraform init -input=false -no-color"
                         rdsHost = sh(script: "terraform output -raw rds_endpoint", returnStdout: true).trim()
                         rdsHost = rdsHost.split(':')[0]
                     }
