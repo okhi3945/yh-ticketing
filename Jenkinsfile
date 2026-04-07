@@ -52,12 +52,10 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 script {
-                    // ⭐️ Terraform과 kubectl도 AWS 권한이 필요하므로 AWS_CREDS 주입 + 기존 RDS_PASSWORD 주입
                     withCredentials([
                         usernamePassword(credentialsId: 'AWS_CREDS', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID'),
                         string(credentialsId: 'RDS_PASSWORD', variable: 'DB_PWD')
                     ]) {
-                        // 1. Terraform 폴더로 이동하여 RDS 엔드포인트 가져오기
                         def rdsHost = ""
                         dir('yh-ticketing-infra') {
                             sh "terraform init -input=false -no-color"
@@ -65,7 +63,6 @@ pipeline {
                             rdsHost = rdsHost.split(':')[0]
                         }
 
-                        // 3. sed 명령어로 k8s/deployment.yaml의 플레이스홀더 치환
                         sh "sed -i 's|IMAGE_TAG_PLACEHOLDER|${IMAGE_TAG}|g' k8s/deployment.yaml"
                         sh "sed -i 's|DB_HOST_PLACEHOLDER|${rdsHost}|g' k8s/deployment.yaml"
                         sh "sed -i 's|DB_PASS_PLACEHOLDER|${DB_PWD}|g' k8s/deployment.yaml"
@@ -74,9 +71,9 @@ pipeline {
 
                         sh "kubectl apply -f k8s/deployment.yaml --kubeconfig ./my-kubeconfig.yaml --validate=false"
     
+
                         sh "kubectl rollout status deployment/${APP_NAME}"
                     }
-                    
                 }
             }
         }
