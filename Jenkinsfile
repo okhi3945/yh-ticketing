@@ -41,7 +41,7 @@ pipeline {
                         sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}"
                         
                         // 2. 이미지 빌드 및 푸시
-                        sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
+                        sh "docker build --platform linux/arm64 -t ${APP_NAME}:${IMAGE_TAG} ."
                         sh "docker tag ${APP_NAME}:${IMAGE_TAG} ${ECR_URL}:${IMAGE_TAG}"
                         sh "docker push ${ECR_URL}:${IMAGE_TAG}"
                     }
