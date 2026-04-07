@@ -70,9 +70,9 @@ pipeline {
                         sh "sed -i 's|DB_HOST_PLACEHOLDER|${rdsHost}|g' k8s/deployment.yaml"
                         sh "sed -i 's|DB_PASS_PLACEHOLDER|${DB_PWD}|g' k8s/deployment.yaml"
 
-                        sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}"
+                        sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME} --kubeconfig ./my-kubeconfig.yaml"
 
-                        sh "kubectl apply -f k8s/deployment.yaml --validate=false"
+                        sh "kubectl apply -f k8s/deployment.yaml --kubeconfig ./my-kubeconfig.yaml --validate=false"
                     }
                     
                     // 배포 상태 확인 (이 부분도 AWS 권한이 필요하면 위 block 안으로 넣어도 됩니다)
