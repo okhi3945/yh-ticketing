@@ -169,7 +169,9 @@ resource "aws_eks_node_group" "private_node_group" {
   node_group_name = "ticketing-private-nodes"
   subnet_ids      = var.private_subnet_ids # 노드 그룹도 Private Subnet에 배치
   node_role_arn   = aws_iam_role.eks_node_role.arn
-  instance_types  = ["t3.micro"]
+
+  instance_types  = ["t4g.large"] # 비용 효율을 위해 t4g로 변경
+  ami_type        = "AL2023_ARM_64_STANDARD" # 그에 따라 ARM 전용 OS를 사용
 
 
   scaling_config {

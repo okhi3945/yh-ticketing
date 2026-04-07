@@ -32,18 +32,17 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                echo 'Building and Pushing Docker Image...'
+                echo 'Building and Pushing Docker Image for ARM64...'
                 script {
                     // 1. ECR 로그인
                     sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}"
                     
-                    // 2. 이미지 빌드
-                    // 젠킨스 컨테이너가 호스트의 docker.sock을 공유하므로 로컬 도커 엔진을 사용합니다.
-                    sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
+                    // 2. buildx 빌더 생성 및 활성화 (처음 1회만 필요, 이미 있으면 무시)
+                    sh "docker buildx create --use || true"
                     
-                    // 3. 태그 및 푸시
-                    sh "docker tag ${APP_NAME}:${IMAGE_TAG} ${ECR_URL}:${IMAGE_TAG}"
-                    sh "docker push ${ECR_URL}:${IMAGE_TAG}"
+                    // 3. ARM64 전용 이미지 빌드 및 ECR 푸시를 한 번에 처리
+                    // 로컬에 이미지를 남기지 않고 ECR로 바로 푸시(--push) 하므로 기존의 tag, push 명령어가 필요 없습니다.
+                    sh "docker buildx build --platform linux/arm64 -t ${ECR_URL}:${IMAGE_TAG} --push ."
                 }
             }
         }
