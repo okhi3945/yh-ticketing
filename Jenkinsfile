@@ -72,7 +72,7 @@ pipeline {
                         sh "kubectl apply -f k8s/deployment.yaml --kubeconfig ./my-kubeconfig.yaml --validate=false"
     
 
-                        sh "kubectl rollout status deployment/${APP_NAME}"
+                        sh "kubectl rollout status deployment/${APP_NAME} --kubeconfig ./my-kubeconfig.yaml"
                     }
                 }
             }
