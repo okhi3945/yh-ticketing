@@ -4,7 +4,7 @@ pipeline {
     tools {
         jdk 'JDK 17' 
     }
-    
+
     environment {
         AWS_REGION     = 'ap-northeast-2'
         ECR_URL        = '601559288376.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing-api-repo' //
@@ -32,17 +32,19 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                echo 'Building and Pushing Docker Image for ARM64...'
+                echo 'Building and Pushing Docker Image...'
                 script {
-                    // 1. ECR 로그인
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}"
-                    
-                    // 2. buildx 빌더 생성 및 활성화 (처음 1회만 필요, 이미 있으면 무시)
-                    sh "docker buildx create --use || true"
-                    
-                    // 3. ARM64 전용 이미지 빌드 및 ECR 푸시를 한 번에 처리
-                    // 로컬에 이미지를 남기지 않고 ECR로 바로 푸시(--push) 하므로 기존의 tag, push 명령어가 필요 없습니다.
-                    sh "docker buildx build --platform linux/arm64 -t ${ECR_URL}:${IMAGE_TAG} --push ."
+                    // ⭐️ AWS_CREDS를 환경변수로 주입
+                    withCredentials([usernamePassword(credentialsId: 'AWS_CREDS', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')]) {
+                        
+                        // 1. ECR 로그인
+                        sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URL}"
+                        
+                        // 2. 이미지 빌드 및 푸시
+                        sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
+                        sh "docker tag ${APP_NAME}:${IMAGE_TAG} ${ECR_URL}:${IMAGE_TAG}"
+                        sh "docker push ${ECR_URL}:${IMAGE_TAG}"
+                    }
                 }
             }
         }
@@ -50,17 +52,19 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 script {
-                    // 1. Terraform 폴더로 이동하여 RDS 엔드포인트 가져오기
-                    def rdsHost = ""
-                    dir('yh-ticketing-infra') {
-                        sh "terraform init -input=false -no-color"
-                        rdsHost = sh(script: "terraform output -raw rds_endpoint", returnStdout: true).trim()
-                        rdsHost = rdsHost.split(':')[0]
-                    }
+                    // ⭐️ Terraform과 kubectl도 AWS 권한이 필요하므로 AWS_CREDS 주입 + 기존 RDS_PASSWORD 주입
+                    withCredentials([
+                        usernamePassword(credentialsId: 'AWS_CREDS', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'RDS_PASSWORD', variable: 'DB_PWD')
+                    ]) {
+                        // 1. Terraform 폴더로 이동하여 RDS 엔드포인트 가져오기
+                        def rdsHost = ""
+                        dir('yh-ticketing-infra') {
+                            sh "terraform init -input=false -no-color"
+                            rdsHost = sh(script: "terraform output -raw rds_endpoint", returnStdout: true).trim()
+                            rdsHost = rdsHost.split(':')[0]
+                        }
 
-                    // 2. 젠킨스 Credentials에서 DB 비밀번호 가져오기 (미리 등록해둔 ID: 'RDS_PASSWORD')
-                    withCredentials([string(credentialsId: 'RDS_PASSWORD', variable: 'DB_PWD')]) {
-                        
                         // 3. sed 명령어로 k8s/deployment.yaml의 플레이스홀더 치환
                         sh "sed -i 's|IMAGE_TAG_PLACEHOLDER|${IMAGE_TAG}|g' k8s/deployment.yaml"
                         sh "sed -i 's|DB_HOST_PLACEHOLDER|${rdsHost}|g' k8s/deployment.yaml"
@@ -70,6 +74,7 @@ pipeline {
                         sh "kubectl apply -f k8s/deployment.yaml --validate=false"
                     }
                     
+                    // 배포 상태 확인 (이 부분도 AWS 권한이 필요하면 위 block 안으로 넣어도 됩니다)
                     sh "kubectl rollout status deployment/${APP_NAME}"
                 }
             }
