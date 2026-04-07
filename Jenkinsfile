@@ -68,7 +68,7 @@ pipeline {
                         // 3. sed 명령어로 k8s/deployment.yaml의 플레이스홀더 치환
                         sh "sed -i 's|IMAGE_TAG_PLACEHOLDER|${IMAGE_TAG}|g' k8s/deployment.yaml"
                         sh "sed -i 's|DB_HOST_PLACEHOLDER|${rdsHost}|g' k8s/deployment.yaml"
-                        sh 'sed -i 's|DB_PASS_PLACEHOLDER|${DB_PWD}|g' k8s/deployment.yaml'
+                        sh "sed -i 's|DB_PASS_PLACEHOLDER|${DB_PWD}|g' k8s/deployment.yaml"
 
                         sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}"
 
