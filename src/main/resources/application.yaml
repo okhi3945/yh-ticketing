@@ -21,3 +21,14 @@ spring:
 logging:
   level:
     com.yh.ticketing: debug
+
+
+# 외부에서 /actuator/prometheus 주소로 메트릭을 읽어갈 수 있도록 설정해줌
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus, health, info
+  metrics:
+    tags:
+      application: ${spring.application.name}
