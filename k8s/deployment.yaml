@@ -39,6 +39,7 @@ spec:
         - name: SPRING_THREADS_VIRTUAL_ENABLED
           value: "true"
 
+        # 리소스 제한
         resources:
           requests:
             memory: "384Mi" 

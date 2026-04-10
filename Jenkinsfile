@@ -69,8 +69,7 @@ pipeline {
 
                         sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME} --kubeconfig ./my-kubeconfig.yaml"
 
-                        sh "kubectl apply -f k8s/deployment.yaml --kubeconfig ./my-kubeconfig.yaml --validate=false"
-    
+                        sh "kubectl apply -f k8s/ --kubeconfig ./my-kubeconfig.yaml --validate=false"
 
                         sh "kubectl rollout status deployment/${APP_NAME} --kubeconfig ./my-kubeconfig.yaml"
                     }
